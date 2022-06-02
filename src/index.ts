@@ -7,6 +7,7 @@ import { logger } from "./utils/logger";
 import { SlashCommandBuilder } from "@discordjs/builders";
 import { Client, Intents, TextChannel } from "discord.js";
 import { handleLyricsGame } from "./lyricsTriviaHandler";
+import {channel} from "diagnostics_channel";
 
 const BAND_OPTION_KEY = "band";
 const lyricsCommand: Omit<
@@ -50,11 +51,13 @@ const commands = [lyricsCommand.toJSON()];
       if (interaction.commandName === lyricsCommand.name) {
         const band = interaction.options.getString(BAND_OPTION_KEY, true);
         const channelId = interaction.channelId;
+        logger.info(`Using channel with id ${channelId}`)
         const channel = (await client.channels.fetch(channelId)) as TextChannel;
-        void handleLyricsGame(channel, band);
+        logger.info(`Loaded channel with id ${channel.id}`)
         await interaction.reply({
           content: `Starting lyrics game for band ${band}. Please wait while I fetch lyrics...`,
-        });
+        })
+        await handleLyricsGame(channel, band);
       }
     });
     await client.login(config.token);
