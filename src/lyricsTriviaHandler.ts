@@ -1,100 +1,18 @@
-import { HexColorString, MessageEmbed, TextChannel } from "discord.js";
 import { logger } from "./utils/logger";
 import fs from "fs";
-import { Client, Song } from "genius-lyrics";
+import { Client } from "genius-lyrics";
 import { getRandomInt, nthOccurrence } from "./utils/utils";
 import retry from "async-retry";
-
-const WAIT_TIME_SECONDS = 15;
-
-type SongDetailsWithSection = SongDetails & { section: string };
-
-type SongTitleAndArtist = {
-  songTitle: string;
-  songArtist: string;
-};
+import {TextChannel} from "discord.js";
 
 type ArtistIdAndName = {
   artistId: number;
   artistName: string;
 };
 
-type SongDetails = {
-  lyrics: string;
-  title: string;
-  art: string;
-  url: string;
-  artist: string;
-};
-
 const config = JSON.parse(fs.readFileSync("./config.json", "utf8"));
 logger.info(`Setting up genius with token ${config.geniusToken}`);
 const geniusClient = new Client(config.geniusToken);
-
-export const handleLyricsGame = async (
-  channel: TextChannel,
-  band: string
-): Promise<void> => {
-  logger.info(`Starting lyricsTrivia game with band ${band}`);
-  await channel.sendTyping();
-  const embedColor: HexColorString = `#${Math.floor(
-    Math.random() * 16777215
-  ).toString(16)}`;
-
-  logger.info(`Message arguments: ${band}.`);
-
-  if (!band) return;
-
-  try {
-    const songObject = await getRandomSongSectionByArtist(channel, band);
-    if (!songObject) {
-      await channel.send(
-        "An error happened 😬 Please try again, it might work."
-      );
-      return;
-    }
-
-    try {
-      const songEmbed = new MessageEmbed()
-        .setColor(embedColor)
-        .setTitle("Guess this song from " + songObject.artist)
-        .setDescription(songObject.section)
-        .setTimestamp()
-        .setThumbnail(
-          "https://ichef.bbci.co.uk/news/976/cpsprodpb/13F53/production/_83874718_thinkstockphotos-104548222.jpg"
-        )
-        .setFooter({
-          text: `💿 Guess in ${WAIT_TIME_SECONDS} seconds`,
-        });
-
-      const songSecondEmbed = new MessageEmbed()
-        .setColor(embedColor)
-        .setTitle(songObject.title)
-        .setTimestamp()
-        .setImage(songObject.art)
-        .setURL(songObject.url)
-        .setFooter({
-          text: "💿 - " + songObject.artist,
-        });
-      await channel.send({ embeds: [songEmbed] });
-      setTimeout(() => {
-        channel.send({
-          embeds: [songSecondEmbed],
-        });
-      }, WAIT_TIME_SECONDS * 1000);
-    } catch (error) {
-      const songSecondEmbed = new MessageEmbed()
-        .setColor(embedColor)
-        .setDescription("An error happened 😬, try again!")
-        .setTimestamp();
-
-      await channel.send({ embeds: [songSecondEmbed] });
-    }
-  } catch (error) {
-    logger.error(error);
-    await channel.send("An error happened 😬 Please try again, it might work.");
-  }
-};
 
 async function getArtistID(artist: string): Promise<ArtistIdAndName> {
   const searches = await geniusClient.songs.search(artist);
@@ -113,9 +31,14 @@ async function getArtistID(artist: string): Promise<ArtistIdAndName> {
   };
 }
 
+type SongTitleAndArtist = {
+  songTitle: string;
+  songArtist: string;
+};
+
 // Choose a song title from the most popular 50 songs from given ID
 async function getSongNameAndTitle(
-  artistObject: ArtistIdAndName
+    artistObject: ArtistIdAndName
 ): Promise<SongTitleAndArtist> {
   const artist = await geniusClient.artists.get(artistObject.artistId);
   if (!artist) {
@@ -126,14 +49,14 @@ async function getSongNameAndTitle(
   const foundSongs = [];
 
   for (let pageIndex = 1; pageIndex <= totalPagesToLoad; pageIndex++) {
-    const popularSongs = await artist.songs({
+    let popularSongs = await artist.songs({
       perPage: 50,
       sort: "popularity",
       page: pageIndex,
     });
-    const filteredByArtist = popularSongs.filter(
-      (song: Song) =>
-        song.artist.name.toLowerCase() === artistObject.artistName.toLowerCase()
+    let filteredByArtist = popularSongs.filter(
+        (song: any) =>
+            song.artist.name.toLowerCase() === artistObject.artistName.toLowerCase()
     );
     foundSongs.push(...filteredByArtist);
     if (foundSongs.length >= 51) {
@@ -152,15 +75,23 @@ async function getSongNameAndTitle(
   };
 }
 
+type SongDetails = {
+  lyrics: string;
+  title: string;
+  art: string;
+  url: string;
+  artist: string;
+};
+
 async function getSongObject(sa: SongTitleAndArtist): Promise<SongDetails> {
   logger.info("Making search request to genius API");
   const searches = await geniusClient.songs.search(
-    geniusClient.songs.sanitizeQuery(sa.songTitle + " " + sa.songArtist)
+      geniusClient.songs.sanitizeQuery(sa.songTitle + " " + sa.songArtist)
   );
 
   if (!searches || searches.length === 0) {
     throw new Error(
-      `No result found for artist ${sa.songArtist} and title ${sa.songTitle}`
+        `No result found for artist ${sa.songArtist} and title ${sa.songTitle}`
     );
   }
 
@@ -186,9 +117,7 @@ function getSectionFromSongObject(songObject: SongDetails): string {
   try {
     songObject.lyrics = songObject.lyrics.replace("]\n\n[", "");
     songObject.lyrics = songObject.lyrics.replace("Embed", "");
-  } catch (error) {
-    logger.info("Failed to load section", error);
-  }
+  } catch (error) {}
 
   // counts how many sections in the song with lyrics are there
   const count = (songObject.lyrics.match(/]\n/g) || []).length;
@@ -197,37 +126,43 @@ function getSectionFromSongObject(songObject: SongDetails): string {
 
   // locates and slices section
   const position1 =
-    nthOccurrence(songObject.lyrics, "]\n", randomSectionNumber) + 1; // Plus one is needed to delete ']' character
+      nthOccurrence(songObject.lyrics, "]\n", randomSectionNumber) + 1; // Plus one is needed to delete ']' character
   const position2 = nthOccurrence(
-    songObject.lyrics,
-    "\n[",
-    randomSectionNumber
+      songObject.lyrics,
+      "\n[",
+      randomSectionNumber
   );
 
-  return songObject.lyrics.slice(position1, position2);
+  const sectionChosen = songObject.lyrics.slice(position1, position2);
+
+  if (sectionChosen.toLowerCase().includes(songObject.title.toLowerCase())) {
+    throw new Error(`Song title found in section, trowing error and trying again.`);
+  }
+
+  return sectionChosen
 }
 
 async function generateLyricsSectionForMessage(
-  channel: TextChannel,
-  messageContent: string
+    channel: TextChannel,
+    message: string
 ) {
   try {
     await channel.sendTyping();
-    logger.info(`Retrieving random song for message ${messageContent}`);
-    const artistId = await getArtistID(messageContent);
+    logger.info(`Retrieving random song for message ${message}`);
+    const artistId = await getArtistID(message);
     logger.info(
-      `Artist ID for message ${messageContent} is ${artistId.artistId}`
+        `Artist ID for message ${message} is ${artistId.artistId}`
     );
     const songChosen = await getSongNameAndTitle(artistId);
     logger.info(
-      `Song title found for artist id ${artistId.artistId}: ${songChosen.songTitle}`
+        `Song title found for artist id ${artistId.artistId}: ${songChosen.songTitle}`
     );
     const songObject = await getSongObject(songChosen);
     logger.info(`Retrieving section from song ${songChosen.songTitle}`);
-    const section = getSectionFromSongObject(songObject);
-    if (!section) {
+    let section = getSectionFromSongObject(songObject);
+    if (!section || section === "") {
       throw new Error(
-        `Did not retrieve section for song ${songChosen.songTitle}`
+          `Did not retrieve section for song ${songChosen.songTitle}`
       );
     }
     return {
@@ -240,19 +175,21 @@ async function generateLyricsSectionForMessage(
   }
 }
 
-async function loadThree(channel: TextChannel, messageContent: string) {
+type SongDetailsWithSection = SongDetails & { section: string };
+
+async function loadThree(channel: TextChannel, message: string) {
   const ps: Promise<SongDetailsWithSection | null>[] = [];
   for (let i = 0; i < 3; i++) {
-    ps.push(generateLyricsSectionForMessage(channel, messageContent));
+    ps.push(generateLyricsSectionForMessage(channel, message));
   }
 
   const settled: PromiseSettledResult<SongDetailsWithSection | null>[] =
-    await Promise.allSettled(ps);
+      await Promise.allSettled(ps);
 
   const fulfilled: PromiseFulfilledResult<SongDetailsWithSection>[] =
-    settled.filter(
-      (r) => r.status === "fulfilled"
-    ) as PromiseFulfilledResult<SongDetailsWithSection>[];
+      settled.filter(
+          (r) => r.status === "fulfilled"
+      ) as PromiseFulfilledResult<SongDetailsWithSection>[];
   if (fulfilled.length > 0) {
     return fulfilled[0].value;
   } else {
@@ -260,12 +197,12 @@ async function loadThree(channel: TextChannel, messageContent: string) {
   }
 }
 
-async function getRandomSongSectionByArtist(
-  channel: TextChannel,
-  messageContent: string
+export async function handleLyricsGame(
+    channel: TextChannel,
+    message: string
 ): Promise<SongDetailsWithSection | null> {
-  logger.info(`Getting random song for message ${messageContent}`);
-  return retry(async () => await loadThree(channel, messageContent), {
+  logger.info(`Getting random song for message ${message}`);
+  return retry(async () => await loadThree(channel, message), {
     retries: 5,
     minTimeout: 0,
     factor: 1,

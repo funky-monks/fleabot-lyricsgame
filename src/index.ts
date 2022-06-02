@@ -7,7 +7,6 @@ import { logger } from "./utils/logger";
 import { SlashCommandBuilder } from "@discordjs/builders";
 import { Client, Intents, TextChannel } from "discord.js";
 import { handleLyricsGame } from "./lyricsTriviaHandler";
-import {channel} from "diagnostics_channel";
 
 const BAND_OPTION_KEY = "band";
 const lyricsCommand: Omit<
