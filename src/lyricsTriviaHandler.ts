@@ -3,7 +3,7 @@ import fs from "fs";
 import { Client, Song } from "genius-lyrics";
 import { getRandomInt, nthOccurrence } from "./utils/utils";
 import retry from "async-retry";
-import { TextChannel } from "discord.js";
+import { HexColorString, MessageEmbed, TextChannel } from "discord.js";
 
 type ArtistIdAndName = {
   artistId: number;
@@ -139,7 +139,7 @@ function getSectionFromSongObject(songObject: SongDetails): string {
 
   if (sectionChosen.toLowerCase().includes(songObject.title.toLowerCase())) {
     throw new Error(
-      `Song title found in section, trowing error and trying again.`
+      `Song title found in section, throwing error and trying again.`
     );
   }
 
@@ -181,7 +181,7 @@ type SongDetailsWithSection = SongDetails & { section: string };
 
 async function loadThree(channel: TextChannel, message: string) {
   const ps: Promise<SongDetailsWithSection | null>[] = [];
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 5; i++) {
     ps.push(generateLyricsSectionForMessage(channel, message));
   }
 
@@ -199,7 +199,7 @@ async function loadThree(channel: TextChannel, message: string) {
   }
 }
 
-export async function handleLyricsGame(
+async function getRandomSongSectionByArtist(
   channel: TextChannel,
   message: string
 ): Promise<SongDetailsWithSection | null> {
@@ -210,3 +210,70 @@ export async function handleLyricsGame(
     factor: 1,
   });
 }
+
+export const handleLyricsGame = async (
+  channel: TextChannel,
+  band: string
+): Promise<void> => {
+  const WAIT_TIME_SECONDS = 15;
+
+  logger.info(`Starting lyricsTrivia game with band ${band}`);
+  await channel.sendTyping();
+  const embedColor: HexColorString = `#${Math.floor(
+    Math.random() * 16777215
+  ).toString(16)}`;
+
+  logger.info(`Message arguments: ${band}.`);
+
+  if (!band) return;
+
+  try {
+    const songObject = await getRandomSongSectionByArtist(channel, band);
+    if (!songObject) {
+      await channel.send(
+        "An error happened 😬 Please try again, it might work."
+      );
+      return;
+    }
+
+    try {
+      const songEmbed = new MessageEmbed()
+        .setColor(embedColor)
+        .setTitle("Guess this song from " + songObject.artist)
+        .setDescription(songObject.section)
+        .setTimestamp()
+        .setThumbnail(
+          "https://ichef.bbci.co.uk/news/976/cpsprodpb/13F53/production/_83874718_thinkstockphotos-104548222.jpg"
+        )
+        .setFooter({
+          text: `💿 Guess in ${WAIT_TIME_SECONDS} seconds`,
+        });
+
+      const songSecondEmbed = new MessageEmbed()
+        .setColor(embedColor)
+        .setTitle(songObject.title)
+        .setTimestamp()
+        .setImage(songObject.art)
+        .setURL(songObject.url)
+        .setFooter({
+          text: "💿 - " + songObject.artist,
+        });
+      await channel.send({ embeds: [songEmbed] });
+      setTimeout(() => {
+        channel.send({
+          embeds: [songSecondEmbed],
+        });
+      }, WAIT_TIME_SECONDS * 1000);
+    } catch (error) {
+      const songSecondEmbed = new MessageEmbed()
+        .setColor(embedColor)
+        .setDescription("An error happened 😬, try again!")
+        .setTimestamp();
+
+      await channel.send({ embeds: [songSecondEmbed] });
+    }
+  } catch (error) {
+    logger.error(error);
+    await channel.send("An error happened 😬 Please try again, it might work.");
+  }
+};
