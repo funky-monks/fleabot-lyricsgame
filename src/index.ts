@@ -53,8 +53,8 @@ const commands = [lyricsCommand.toJSON()];
         const channel = (await client.channels.fetch(channelId)) as TextChannel;
         void handleLyricsGame(channel, band);
         await interaction.reply({
-            content: `Starting lyrics game for band ${band}. Please wait while I fetch lyrics...`,
-        })
+          content: `Starting lyrics game for band ${band}. Please wait while I fetch lyrics...`,
+        });
       }
     });
     await client.login(config.token);

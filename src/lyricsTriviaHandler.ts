@@ -1,7 +1,7 @@
 import { HexColorString, MessageEmbed, TextChannel } from "discord.js";
 import { logger } from "./utils/logger";
 import fs from "fs";
-import { Client } from "genius-lyrics";
+import { Client, Song } from "genius-lyrics";
 import { getRandomInt, nthOccurrence } from "./utils/utils";
 import retry from "async-retry";
 
@@ -126,13 +126,13 @@ async function getSongNameAndTitle(
   const foundSongs = [];
 
   for (let pageIndex = 1; pageIndex <= totalPagesToLoad; pageIndex++) {
-    let popularSongs = await artist.songs({
+    const popularSongs = await artist.songs({
       perPage: 50,
       sort: "popularity",
       page: pageIndex,
     });
-    let filteredByArtist = popularSongs.filter(
-      (song: any) =>
+    const filteredByArtist = popularSongs.filter(
+      (song: Song) =>
         song.artist.name.toLowerCase() === artistObject.artistName.toLowerCase()
     );
     foundSongs.push(...filteredByArtist);
@@ -186,7 +186,9 @@ function getSectionFromSongObject(songObject: SongDetails): string {
   try {
     songObject.lyrics = songObject.lyrics.replace("]\n\n[", "");
     songObject.lyrics = songObject.lyrics.replace("Embed", "");
-  } catch (error) {}
+  } catch (error) {
+    logger.info("Failed to load section", error);
+  }
 
   // counts how many sections in the song with lyrics are there
   const count = (songObject.lyrics.match(/]\n/g) || []).length;
@@ -222,7 +224,7 @@ async function generateLyricsSectionForMessage(
     );
     const songObject = await getSongObject(songChosen);
     logger.info(`Retrieving section from song ${songChosen.songTitle}`);
-    let section = getSectionFromSongObject(songObject);
+    const section = getSectionFromSongObject(songObject);
     if (!section) {
       throw new Error(
         `Did not retrieve section for song ${songChosen.songTitle}`

@@ -1,0 +1,20 @@
+---
+- name: Update esmbot
+  hosts: bots.funkymonks.xyz
+  gather_facts: true
+  remote_user: fleabot-lyricsgame
+  tasks:
+    - name: Update repository
+      shell: git pull origin master
+      args:
+        chdir: /home/fleabot-lyricsgame/fleabot-lyricsgame
+
+    - name: Rebuild application
+      shell: npm install && npm run build
+      args:
+        chdir: /home/fleabot-lyricsgame/fleabot-lyricsgame
+
+    - name: Run application
+      shell: pm2 restart build/index.js
+      args:
+        chdir: /home/fleabot-lyricsgame/fleabot-lyricsgame
