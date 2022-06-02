@@ -50,12 +50,12 @@ const commands = [lyricsCommand.toJSON()];
       if (interaction.commandName === lyricsCommand.name) {
         const band = interaction.options.getString(BAND_OPTION_KEY, true);
         const channelId = interaction.channelId;
-        logger.info(`Using channel with id ${channelId}`)
+        logger.info(`Using channel with id ${channelId}`);
         const channel = (await client.channels.fetch(channelId)) as TextChannel;
-        logger.info(`Loaded channel with id ${channel.id}`)
+        logger.info(`Loaded channel with id ${channel.id}`);
         await interaction.reply({
           content: `Starting lyrics game for band ${band}. Please wait while I fetch lyrics...`,
-        })
+        });
         await handleLyricsGame(channel, band);
       }
     });
