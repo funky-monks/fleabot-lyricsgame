@@ -37,7 +37,7 @@
     "*.{js,css,md}": "prettier --write"
   },
   "dependencies": {
-    "@discordjs/builders": "^0.13.0",
+    "@discordjs/builders": "^0.16.0",
     "@discordjs/rest": "^0.4.1",
     "async-retry": "^1.3.3",
     "discord.js": "^13.7.0",
